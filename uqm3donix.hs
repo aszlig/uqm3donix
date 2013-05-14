@@ -7,11 +7,13 @@ import Data.Char (toLower)
 import Data.Binary.Get
 import Data.Word (Word8, Word32)
 import Data.Maybe (listToMaybe, mapMaybe)
-import Data.List (nubBy)
+import Data.List (nubBy, isPrefixOf)
 import Data.Function (on)
 
 import Control.Applicative (pure, (<$>), (<*>), (<*))
 import Control.Monad (unless)
+
+import Text.Printf (printf)
 
 import Codec.Archive.Tar (write)
 import qualified Codec.Archive.Tar.Entry as T
@@ -133,11 +135,14 @@ findFiles ms ofs = mapMaybe (`findFile` ofs) ms
 
 duckify :: [String] -> [String] -> [[String]]
 duckify [] _ = []
-duckify (b:bs) es = map (\e -> ["duckart", b ++ "." ++ e]) es ++ duckify bs es
+duckify (b:bs) es = map (\e -> ["duckart", b <.> e]) es ++ duckify bs es
 
 findDuckFiles :: [OperaFile] -> [OperaFile]
-findDuckFiles = let bases = ["intro", "victory"]
-                    exts = ["duk", "frm", "hdr", "tbl"]
+findDuckFiles = let printShip :: Integer -> String
+                    printShip = printf "ship%02d"
+                    ships = map printShip [0..24]
+                    bases = ["intro", "victory", "spin"] ++ ships
+                    exts = ["aif", "duk", "frm", "hdr", "tbl"]
                     in findFiles $ duckify bases exts
 
 toTarEntry :: T.TarPath -> OperaFile -> T.Entry
@@ -166,10 +171,13 @@ toDuckTarEntries file =
 
     getOperaLowerFilename = map toLower . operaFileName . fileHeader
 
-    prefix = "content" </> "slides"
-    getFilename ("intro",   ext) = prefix </> "intro"  </> "intro"   <.> ext
-    getFilename ("victory", ext) = prefix </> "ending" </> "victory" <.> ext
-    getFilename (name     , ext) = "unknown" </> name <.> ext
+    prefix = "content" </> "addons" </> "3dovideo"
+    getFilename ("spin",      ext) = prefix </> "spins"  </> "spin"    <.> ext
+    getFilename ("intro",     ext) = prefix </> "intro"  </> "intro"   <.> ext
+    getFilename ("victory",   ext) = prefix </> "ending" </> "victory" <.> ext
+    getFilename (name,        ext)
+        | "ship" `isPrefixOf` name = prefix </> "spins"  </> name      <.> ext
+        | otherwise                = prefix </> "misc"   </> name      <.> ext
 
 removeDuplicates :: [T.Entry] -> [T.Entry]
 removeDuplicates = nubBy ((==) `on` T.entryTarPath)
