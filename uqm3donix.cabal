@@ -2,11 +2,11 @@ name:                uqm3donix
 version:             0.1.0.0
 synopsis:            Extract video files from a Star Control II 3DO image
 description:         A small helper to extract the intro and outro videos from
-                     an Star Control II CD for use in The Ur-Quan Masters opon
+                     a Star Control II CD for use in The Ur-Quan Masters open
                      source port of the game.
 
                      This helper was originally written in order to improve
-                     packaging in Nix but can be used with any system or
+                     packaging in Nix but can be used with any system and/or
                      distribution.
 license:             BSD3
 license-file:        LICENSE
