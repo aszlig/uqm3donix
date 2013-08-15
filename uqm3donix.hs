@@ -9,6 +9,7 @@ import Data.Word (Word8, Word32)
 import Data.Maybe (listToMaybe, mapMaybe)
 import Data.List (nubBy, isPrefixOf)
 import Data.Function (on)
+import Data.Int (Int64)
 
 import Control.Applicative (pure, (<$>), (<*>), (<*))
 import Control.Monad (unless)
@@ -41,8 +42,11 @@ data OperaFile = OperaFile
     , fileData :: Either [OperaFile] B.ByteString
     } deriving (Show)
 
+skipL :: Int64 -> Get ()
+skipL n = getLazyByteString n >> return ()
+
 seekTo :: Integral a => a -> Get ()
-seekTo = (>>=) (fmap fromIntegral bytesRead) . fmap skip . (-) . fromIntegral
+seekTo = (>>=) (fmap fromIntegral bytesRead) . fmap skipL . (-) . fromIntegral
 
 skipToBlock :: Integral a => a -> Get ()
 skipToBlock = seekTo . (* 2048)
@@ -72,9 +76,9 @@ getFileType = getWord8 >>= convert
 
 getFileHeader :: Get OperaHeader
 getFileHeader = OperaHeader <$> getControl
-                            <*  skip 2  <*> getFileType
-                            <*  skip 12 <*> getWord32be
-                            <*  skip 12 <*> (CB.unpack <$> getOperaString 32)
+                            <*  skipL 2  <*> getFileType
+                            <*  skipL 12 <*> getWord32be
+                            <*  skipL 12 <*> (CB.unpack <$> getOperaString 32)
                             <*> getWord32be
                             <*> getWord32be
 
@@ -83,7 +87,7 @@ getOperaData header = skipToBlock (operaStartBlock header) >>
     getLazyByteString (fromIntegral $ operaFileSize header)
 
 skipCopies :: OperaHeader -> Get ()
-skipCopies = skip . (* 4) . fromIntegral . operaCopies
+skipCopies = skipL . (* 4) . fromIntegral . operaCopies
 
 getOperaFile :: B.ByteString -> Get OperaFile
 getOperaFile bs = getFileHeader >>= \header -> skipCopies header >>
@@ -102,13 +106,13 @@ getOperaFiles :: B.ByteString -> Int -> [OperaFile] -> Get [OperaFile]
 getOperaFiles bs block files = getOperaFile bs >>= \file ->
     case operaControl . fileHeader $ file of
          NoOp      -> getOperaFiles bs block       (file : files)
-         NextBlock -> skipToBlock (block + 1) >> skip 20 >>
+         NextBlock -> skipToBlock (block + 1) >> skipL 20 >>
              getOperaFiles bs (block + 1) (file : files)
          EndTree   -> return (file : files)
 
 getDir :: B.ByteString -> Int -> [OperaFile]
 getDir bs block = flip runGet bs $
-    skipToBlock block >> skip 20 >> getOperaFiles bs block []
+    skipToBlock block >> skipL 20 >> getOperaFiles bs block []
 
 readFiles :: B.ByteString -> [OperaFile]
 readFiles bs = getDir bs $ getSuperBlock bs
