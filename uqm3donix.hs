@@ -105,7 +105,7 @@ getSuperBlock = runGet $ lookAhead ensureMagic >> seekTo (0x64::Int) >>
 getOperaFiles :: B.ByteString -> Int -> [OperaFile] -> Get [OperaFile]
 getOperaFiles bs block files = getOperaFile bs >>= \file ->
     case operaControl . fileHeader $ file of
-         NoOp      -> getOperaFiles bs block       (file : files)
+         NoOp      -> getOperaFiles bs block (file : files)
          NextBlock -> skipToBlock (block + 1) >> skipL 20 >>
              getOperaFiles bs (block + 1) (file : files)
          EndTree   -> return (file : files)
